@@ -270,7 +270,55 @@ void mostrar_estado(Jugador *jugador) {
 }
 
 
+void recoger_items(Jugador *jugador) {
+  Escenario *esc = jugador->escenario_actual;
+  if (list_first(esc->items_disponibles) == NULL) {
+    printf("\n[!] No hay items para recoger en este escenario.\n");
+    return;
+  }
+  bool recogio_alguno = false;
+  int opcion = -1;
 
+  while (list_first(esc->items_disponibles) != NULL) {
+    printf("\n--- Seleccione el ítem que desea recoger ---\n");
+    int total = 0;
+    Item *it = (Item *)list_first(esc->items_disponibles);
+    while (it != NULL) {
+      total++;
+      printf("  %d. %s (Valor: &d pts, Peso: %d kg)\n", total, it->nombre, it->valor, it->peso);
+      it = (Item *)list_next(esc->items_disponibles);
+    }
+    printf("  0. Terminar de recoger\n");
+    printf("Opción: ");
+
+    if (scanf("%d", &opcion) != 1) {
+      limpiar_buffer();
+      printf("[!] Entrada inválida.\n");
+      continue;
+    }
+    limpiar_buffer();
+
+    if (opcion == 0) break;
+    if (opcion < 1 || opcion > total) {
+      printf("[!] Número de ítem fuera de rango.\n");
+      continue;
+    }
+    it = (Item *)list_first(esc->items_disponibles);
+    for (int i = 1; i < opcion; i++) {
+      it = (Item *)list_next(esc->items_disponibles);
+    }
+    list_pushBack(jugador->inventario, it);
+    jugador->peso_total += it->peso;
+    jugador->puntaje_acumulado += it->valor;
+    printf("\n[+] Has recogido: %s (+%d pts, +%d kg)\n", it->nombre, it->valor, it->peso);
+    list_popCurrent(esc->items_disponibles);
+    recogio_alguno = true;
+  }
+  if (recogio_alguno) {
+    jugador->tiempo_restante -= 1;
+    printf("\n[Tiempo] Se ha descontado 1 unidad de tiempo por recoger ítem(s).\n");
+  }
+}
 
 
 int main() {
