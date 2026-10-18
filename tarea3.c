@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <math.h>
 #include "tdas/list.h"
 #include "tdas/extra.h"
 #include "tdas/map.h"
@@ -369,6 +368,46 @@ void descartar_items(Jugador *jugador) {
     printf("\n[Tiempo] Se ha descartado una unidad de tiempo por descartar ítem(s)-\n");
   }
 }
+
+bool avanzar_direccion(Jugador *jugador) {
+  Escenario *esc = jugador->escenario_actual;
+
+  printf("\n--- Elige una dirección para avanzar ---\n");
+  if (esc->arriba)    printf("  1. Arriba    (%s)\n", esc->arriba->nombre);
+  if (esc->abajo)     printf("  2. Abajo     (%s)\n", esc->abajo->nombre);
+  if (esc->izquierda) printf("  3. Izquierda (%s)\n", esc->izquierda->nombre);
+  if (esc->derecha)   printf("  4. Derecha   (%s)\n", esc->derecha->nombre);
+  printf("  0. Cancelar\n");
+  printf("Opción: ");
+
+  int opcion;
+  if (scanf("%d", &opcion) != 1) {
+    limpiar_buffer();
+    printf("\n[!] Entrada inválida.\n");
+    return false;
+  }
+  limpiar_buffer();
+
+  if (opcion == 0) return false;
+
+  Escenario *destino = NULL;
+  if (opcion == 1 && esc->arriba) destino = esc->arriba;
+  else if (opcion == 2 && esc->abajo) destino = esc->abajo;
+  else if (opcion == 3 && esc->izquierda) destino = esc->izquierda;
+  else if (opcion == 4 && esc->derecha) destino = esc->derecha;
+  else {
+    printf("\n[!] Dirección no disponible o inválida-\n");
+    return false;
+  } 
+  int tiempo_usado = (jugador->peso_total + 1 + 9) / 10;
+  jugador->tiempo_restante -= tiempo_usado;
+  jugador->escenario_actual = destino;
+
+  printf("\n[Movimiento] Avanzaste hacia '%s'.\n", destino->nombre);
+  printf("[Tiempo] Peso transportado: %d kg -> Tiempo consumido: %d unidad(es).\n", jugador->peso_total, tiempo_usado);
+  return true;
+}
+
 
 
 
