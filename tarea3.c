@@ -5,13 +5,14 @@
 #include <math.h>
 #include "tdas/list.h"
 #include "tdas/extra.h"
+#include "tdas/map.h"
 
 #define TIEMPO_INICIAL 10
 
 typedef struct {
   char nombre[100];
   int valor;
-  intr peso;
+  int peso;
 } Item;
 
 typedef struct Escenario {
@@ -44,9 +45,9 @@ int int_equal(void *key1, void *key2) {
 }
 
 Item *clonar_item(Item *original) {
-  Item *nuevo = (Item *)malloc(sizerof(Item));
+  Item *nuevo = (Item *)malloc(sizeof(Item));
   if (nuevo != NULL) {
-    strcpy(nuevo->nombre = original->nombre);
+    strcpy(nuevo->nombre, original->nombre);
     nuevo->valor = original->valor;
     nuevo->peso = original->peso;
   }
@@ -103,7 +104,7 @@ void liberar_grafo(Map *grafo) {
       it = (Item *)list_next(esc->items_disponibles);
     }
     list_clean(esc->items_disponibles);
-    free(esc->items_disponibles):
+    free(esc->items_disponibles);
     free(pair->key);
     free(esc);
     pair = map_next(grafo);
@@ -113,7 +114,7 @@ void liberar_grafo(Map *grafo) {
 }
 
 void limpiar_inventario(Jugador *jugador) {
-  Item *it (Item *)list_first(jugador->inventario);
+  Item *it = (Item *)list_first(jugador->inventario);
   while (it != NULL) {
     free(it);
     it = (Item *)list_next(jugador->inventario);
@@ -228,7 +229,7 @@ Map *cargar_laberinto(const char *nombre_archivo) {
 }
 
 void mostrar_estado(Jugador *jugador) {
-  Escenario ¡esc = jugador->escenario_actual;
+  Escenario *esc = jugador->escenario_actual;
   printf("\n============================================================\n");
   printf(" ESCENARIO ACTUAL: [%d] %s\n", esc->id, esc->nombre);
   printf("============================================================\n");
