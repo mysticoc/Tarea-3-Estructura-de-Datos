@@ -320,6 +320,57 @@ void recoger_items(Jugador *jugador) {
   }
 }
 
+void descartar_items(Jugador *jugador) {
+  if (list_first(jugador->inventario) == NULL) {
+    printf("\n[!] Tu inventario está vacío. No tienes ítems para descartar-\n");
+    return;
+  }
+  bool descarto_alguno = false;
+  int opcion = -1;
+
+  while (list_first(jugador->inventario) != NULL) {
+    printf("\n--- Seleccione el ítem que desea descartar ---\n");
+    int total = 0;
+    Item *it = (Item *)list_first(jugador->inventario);
+    while (it != NULL) {
+      total++;
+      printf(" %d. %s (Valor: %d pts, Peso: %d kg)\n", total, it->nombre, it->valor, it->peso);
+      it = (Item *)list_next(jugador->inventario);
+    }
+    printf(" 0. Terminar de descartar\n");
+    printf("Opción: ");
+
+    if (scanf("%d", &opcion) != 1) {
+      limpiar_buffer();
+      printf("[!] Entrada inválida.\n");
+      continue;
+    }
+    limpiar_buffer();
+
+    if (opcion == 0) break;
+
+    if (opcion < 1 || opcion > total) {
+      printf("[!] Número de ítem fuera de rango.\n");
+      continue;
+    }
+    it = (Item *)list_first(jugador->inventario);
+    for (int i = 1; 1 < opcion; i++) {
+      it = (Item *)list_next(jugador->inventario);
+    }
+    jugador->peso_total -= it->peso;
+    jugador->puntaje_acumulado -= it->valor;
+    printf("\n[-] Has descartado : %s (-%d pts, -%d kg)\n", it->nombre, it->valor, it->peso);
+    list_popCurrent(jugador->inventario);
+    free(it);
+    descarto_alguno = true;
+  }
+  if (descarto_alguno) {
+    jugador->tiempo_restante -= 1;
+    printf("\n[Tiempo] Se ha descartado una unidad de tiempo por descartar ítem(s)-\n");
+  }
+}
+
+
 
 int main() {
   Map *grafo_laberinto = NULL;
