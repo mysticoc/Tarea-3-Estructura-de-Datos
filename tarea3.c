@@ -408,7 +408,31 @@ bool avanzar_direccion(Jugador *jugador) {
   return true;
 }
 
+void mostrar_victoria(Jugador *jugador) {
+  printf("\n************************************************************\n");
+  printf("          ¡FELICIDADES! HAS ALCANZADO LA SALIDA             \n");
+  printf("************************************************************\n");
+  printf("Escenario final: %s\n", jugador->escenario_actual->nombre);
+  printf("Descripción    : %s\n\n", jugador->escenario_actual->descripcion);
 
+  printf("--- Resumen de tu Inventario Final ---\n");
+  Item *it = (Item *)list_first(jugador->inventario);
+  if (it == NULL) {
+    printf(" Saliste sin ningun ítem en el inventario.\n");
+  } else {
+    int idx = 1;
+    while (it != NULL) {
+      printf(" %d. %s (Valor: %d pts | Peso: %d kg)\n", idx++, it->nombre, it->valor, it->peso);
+      it = (Item *)list_next(jugador->inventario);
+    }
+  }
+  printf("\n------------------------------------------------------------\n");
+  printf("  Tiempo sobrante : %d\n", jugador->tiempo_restante);
+  printf("  Peso total final: %d kg\n", jugador->peso_total);
+  printf("  PUNTAJE FINAL   : %d puntos\n", jugador->puntaje_acumulado);
+  printf("************************************************************\n");
+  presioneTeclaParaContinuar();
+}
 
 
 int main() {
