@@ -578,6 +578,7 @@ void iniciar_partida(Map *grafo) {
     printf("3. Avanzar en una Dirección\n");
     printf("4. Reiniciar Partida\n");
     printf("5. Salir al Menú Principal\n");
+    printf("Seleccione una opción: ");
 
     int opcion;
     if (scanf("%d", &opcion) != 1) {
@@ -643,27 +644,27 @@ int main() {
     limpiar_buffer();
     switch (opcion) {
       case 1: {
-      char ruta_archivo[256];
-          printf("\nIngrese el nombre del archivo CSV (presione Enter para usar 'graphquest.csv'): ");
-          if (fgets(ruta_archivo, sizeof(ruta_archivo), stdin) != NULL) {
-              ruta_archivo[strcspn(ruta_archivo, "\r\n")] = '\0';
-              if (strlen(ruta_archivo) == 0) {
-                  strcpy(ruta_archivo, "graphquest.csv");
-              }
-          } else {
+        char ruta_archivo[256];
+        printf("\nIngrese el nombre del archivo CSV (presione Enter para usar 'graphquest.csv'): ");
+        if (fgets(ruta_archivo, sizeof(ruta_archivo), stdin) != NULL) {
+            ruta_archivo[strcspn(ruta_archivo, "\r\n")] = '\0';
+            if (strlen(ruta_archivo) == 0) {
+                strcpy(ruta_archivo, "graphquest.csv");
+            }
+        } else {
               strcpy(ruta_archivo, "graphquest.csv");
-          }
+        }
 
-          // Si ya había un laberinto cargado, liberar su memoria antes de recargar
-          if (grafo_laberinto != NULL) {
-              liberar_grafo(grafo_laberinto);
-          }
+        // Si ya había un laberinto cargado, liberar su memoria antes de recargar
+        if (grafo_laberinto != NULL) {
+            liberar_grafo(grafo_laberinto);
+        }
 
-          grafo_laberinto = cargar_laberinto(ruta_archivo);
-          if (grafo_laberinto != NULL) {
-              printf("\n[Éxito] Laberinto cargado correctamente desde '%s'.\n", ruta_archivo);
-          }
-          break;
+        grafo_laberinto = cargar_laberinto(ruta_archivo);
+        if (grafo_laberinto != NULL) {
+          printf("\n[Éxito] Laberinto cargado correctamente desde '%s'.\n", ruta_archivo);
+        }
+        break;
       }
       case 2:
         if (grafo_laberinto == NULL) {
