@@ -88,8 +88,11 @@ void limpiar_buffer() {
 bool es_afirmativo(const char *texto) {
   if (texto == NULL) return false;
   return (strstr(texto, "Si") != NULL || strstr(texto, "Sí") != NULL ||
-          strstr(texto, "si") != NULL || strstr(texto, "sí") != NULL || 
-          strcmp(texto, "1") == 0);
+          strstr(texto, "si") != NULL || strstr(texto, "sí") != NULL ||
+          strstr(texto, "SI") != NULL || strstr(texto, "SÍ") != NULL ||
+          strstr(texto, "Yes") != NULL || strstr(texto, "yes") != NULL ||
+          strstr(texto, "True") != NULL || strstr(texto, "true") != NULL ||
+          strstr(texto, "1") != NULL);
 }
 
 // ============================================================================
@@ -255,7 +258,7 @@ Map *cargar_laberinto(const char *nombre_archivo) {
     nuevo->izquierda = NULL;
     nuevo->derecha = NULL;
 
-    nuevo->es_final = es_afirmativo(campos[8]);
+    nuevo->es_final = es_afirmativo(campos[8]) || (strcmp(nuevo->nombre, "Salida") == 0);
     
     int *clave_id = (int *)malloc(sizeof(int));
     *clave_id = nuevo->id;
