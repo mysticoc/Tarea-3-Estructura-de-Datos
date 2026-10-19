@@ -7,30 +7,39 @@
 #include "tdas/map.h"
 
 #define TIEMPO_INICIAL 10
-
+/**
+  * Estructura que representa un ítem coleccionable dentro del juego.
+  */
 typedef struct {
   char nombre[100];
-  int valor;
-  int peso;
+  int valor; // Puntaje que otorga el ítem.
+  int peso; // Peso en kg que relentiza al jugador
 } Item;
 
+/**
+  * Estructura que representa un Nodo (Vértice) del Grafo del Laberinto-
+  * Contiene punteros explícitos hacia los nodos adyacentes (aristas dirigidas).
+  */
 typedef struct Escenario {
   int id;
   char nombre[100];
   char descripcion[300];
-  List *items_originales;
-  List *items_disponibles;
-  int id_arriba;
+  List *items_originales; // Respaldo de ítems para poder reinciar la partida
+  List *items_disponibles; // Lista de ítems actualmente en el escenario
+  int id_arriba; // ID temporal para enlazar el grafo
   int id_abajo;
   int id_izquierda;
   int id_derecha;
-  struct Escenario *arriba;
-  struct Escenario *abajo;
-  struct Escenario *izquierda;
-  struct Escenario *derecha;
-  bool es_final;
+  struct Escenario *arriba; // Puntero directo al nodo superior (Grafo explícito)
+  struct Escenario *abajo; // Puntero directo al nodo inferior
+  struct Escenario *izquierda; // Puntero directo al nodo izquierdo
+  struct Escenario *derecha; // Puntero directo al nodo derecho
+  bool es_final; // Indica si este nodo es la Salida
 } Escenario;
 
+/** 
+  * Estructura que representa el estado actual del jugador-
+  */
 typedef struct {
   Escenario *escenario_actual;
   List *inventario;
@@ -39,10 +48,21 @@ typedef struct {
   int tiempo_restante;
 } Jugador;
 
+// ============================================================================
+// FUNCIONES AUXILIARES Y DE COMPARACIÓN
+// ============================================================================
+
+
+/** 
+  * Funcion de comparación para el TDA Map (compara claves de tipo int)-
+  */
 int int_equal(void *key1, void *key2) {
   return (*(int *)key1 == *(int *)key2);
 }
 
+/**
+  * Crea una copia en memoria dinámica de un ítem existente.
+  */
 Item *clonar_item(Item *original) {
   Item *nuevo = (Item *)malloc(sizeof(Item));
   if (nuevo != NULL) {
@@ -53,11 +73,18 @@ Item *clonar_item(Item *original) {
   return nuevo;
 }
 
+/** 
+  * Limpia el búfer de entrada estándar para evitar erroes con scanf o fgets.
+  */
 void limpiar_buffer() {
   int c;
   while ((c = getchar()) != '\n' && c != EOF);
 }
 
+
+/**
+  * Verifica si una cadena indica afirmación ("Si", "Sí", "si", "sí", "true", "1").
+  */
 bool es_afirmativo(const char *texto) {
   if (texto == NULL) return false;
   return (strstr(texto, "Si") != NULL || strstr(texto, "Sí") != NULL ||
@@ -65,16 +92,27 @@ bool es_afirmativo(const char *texto) {
           strcmp(texto, "1") == 0);
 }
 
+// ============================================================================
+// GESTIÓN DE MEMORIA Y REINICIO DEL GRAFO
+// ============================================================================
+
+
+/**
+  * Restaura los ítems de todos los escenarios a su estado original sin necesidad 
+  * de volver a leer el archivo CSV
+  */
 void restaurar_escenarios(Map *grafo) {
   MapPair *pair = map_first(grafo);
   while (pair != NULL) {
     Escenario *esc = (Escenario *)pair->value;
+    // Liberar ítems sobrantes en la lista disponible actual
     Item *it = (Item *)list_first(esc->items_disponibles);
     while (it != NULL) {
       free(it);
       it = (Item *)list_next(esc->items_disponibles);
     }
     list_clean(esc->items_disponibles);
+    // Copiar la lista de respaldo original
     Item *orig = (Item *)list_first(esc->items_originales);
     while (orig != NULL) {
       list_pushBack(esc->items_disponibles, clonar_item(orig));
@@ -84,6 +122,10 @@ void restaurar_escenarios(Map *grafo) {
   }
 }
 
+
+/**
+  * Libera toda la memoria reservada por el grafo y sus listas internas.
+  */
 void liberar_grafo(Map *grafo) {
   if (grafo == NULL) return;
   MapPair *pair = map_first(grafo);
@@ -104,7 +146,7 @@ void liberar_grafo(Map *grafo) {
     }
     list_clean(esc->items_disponibles);
     free(esc->items_disponibles);
-    free(pair->key);
+    free(pair->key); // Liberar clave entera dinámica
     free(esc);
     pair = map_next(grafo);
   } 
@@ -112,6 +154,10 @@ void liberar_grafo(Map *grafo) {
   free(grafo);
 }
 
+
+/**
+  * Vacía el inventario del jugador liberando la memoria de sus ítems.
+  */
 void limpiar_inventario(Jugador *jugador) {
   Item *it = (Item *)list_first(jugador->inventario);
   while (it != NULL) {
@@ -123,6 +169,15 @@ void limpiar_inventario(Jugador *jugador) {
   jugador->puntaje_acumulado = 0;
 }
 
+// ============================================================================
+// CARGA DEL LABERINTO Y CONSTRUCCIÓN DEL GRAFO EXPLÍCITO
+// ============================================================================
+
+
+/**
+  * Lee el archivo CSV, crea los nodos y construye las conexiones explícitas
+  * entre los escenarios del laberinto.
+  */
 Map *cargar_laberinto(const char *nombre_archivo) {
   FILE *archivo = fopen(nombre_archivo, "r");
   if (archivo == NULL) {
@@ -131,13 +186,15 @@ Map *cargar_laberinto(const char *nombre_archivo) {
   }
   Map *grafo = map_create(int_equal);
   char **campos;
-
+  
+  // Leer encabezados del CSV
   campos = leer_linea_csv(archivo,  ',');
   if (campos == NULL) {
     fclose(archivo);
     free(grafo);
     return NULL;
   }
+  // Primera pasada: Crear todos los vértices (Escenarios) e insertarlos en el Mapa
   while ((campos = leer_linea_csv(archivo, ',')) != NULL) {
     Escenario *nuevo = (Escenario *)malloc(sizeof(Escenario));
     nuevo->id = atoi(campos[0]);
@@ -147,6 +204,7 @@ Map *cargar_laberinto(const char *nombre_archivo) {
     nuevo->items_originales = list_create();
     nuevo->items_disponibles = list_create();
 
+    // Parsear los ítems del escenario (formato: "Nombre, valor, peso, Nombre2, valor2, peso2")
     if (strlen(campos[3]) > 0) {
       List *lista_raw_items = split_string(campos[3], ";");
       char *item_str = (char *)list_first(lista_raw_items);
@@ -158,7 +216,7 @@ Map *cargar_laberinto(const char *nombre_archivo) {
 
         if (nom && val_str && peso_str) {
           Item *item = (Item *)malloc(sizeof(Item));
-
+          // Eliminar posibles espacios iniciales en el nombre
           while (*nom == ' ') nom++;
           strcpy(item->nombre, nom);
           item->valor = atoi(val_str);
@@ -167,6 +225,7 @@ Map *cargar_laberinto(const char *nombre_archivo) {
           list_pushBack(nuevo->items_originales, item);
           list_pushBack(nuevo->items_disponibles, clonar_item(item));
         }
+        // Liberar memoria temporar del split_string (datos_item)
         char *aux = (char *)list_first(datos_item);
         while (aux != NULL) {
           free(aux);
@@ -176,6 +235,7 @@ Map *cargar_laberinto(const char *nombre_archivo) {
         free(datos_item);
         item_str = (char *)list_next(lista_raw_items);
       }
+      // Liberar memoria temporar del split_string (lista_raw_items)
       char *aux_raw = (char *)list_first(lista_raw_items);
       while (aux_raw != NULL) {
         free(aux_raw);
@@ -184,6 +244,7 @@ Map *cargar_laberinto(const char *nombre_archivo) {
       list_clean(lista_raw_items);
       free(lista_raw_items);
     }
+    // Guardar IDs de conexiones para enlazar punteros en la segunda pasada
     nuevo->id_arriba = atoi(campos[4]);
     nuevo->id_abajo = atoi(campos[5]);
     nuevo->id_izquierda = atoi(campos[6]);
@@ -202,6 +263,7 @@ Map *cargar_laberinto(const char *nombre_archivo) {
   }
   fclose(archivo);
 
+  // Segunda pasada: Construir el Grafo Explícito enlazando los punteros de cada nodo
   MapPair *pair = map_first(grafo);
   while (pair != NULL) {
     Escenario *actual = (Escenario *)pair->value;
@@ -227,12 +289,21 @@ Map *cargar_laberinto(const char *nombre_archivo) {
   return grafo;
 }
 
+// ============================================================================
+// FUNCIONES DE INTERFAZ Y LÓGICA DE JUEGO
+// ============================================================================
+
+
+/**
+  * Muestra por pantalla toda la información del escenario actual y del jugador.
+  */
 void mostrar_estado(Jugador *jugador) {
   Escenario *esc = jugador->escenario_actual;
   printf("\n============================================================\n");
   printf(" ESCENARIO ACTUAL: [%d] %s\n", esc->id, esc->nombre);
   printf("============================================================\n");
   printf("Descripción: %s\n\n", esc->descripcion);
+  // Mostrar ítems disponibles en el escenario
   printf("--- Ítems en este escenario ---\n");
   Item *it = (Item *)list_first(esc->items_disponibles);
   if (it == NULL) {
@@ -244,6 +315,7 @@ void mostrar_estado(Jugador *jugador) {
           it = (Item *)list_next(esc->items_disponibles);
       }
   }
+  // Mostrar estado e inventario del jugador
   printf("\n--- Estado del Jugador ---\n");
   printf("  Tiempo restante   : %d\n", jugador->tiempo_restante);
   printf("  Peso total        : %d kg\n", jugador->peso_total);
@@ -260,15 +332,20 @@ void mostrar_estado(Jugador *jugador) {
           inv_it = (Item *)list_next(jugador->inventario);
       }
   }
+  // Mostrar direcciones disponibles desde el nodo actual del grafo
   printf("\n--- Direcciones Disponibles ---\n");
-  if (esc->arriba)    printf("  [Arriba]    -> %s (ID: %d)\n", esc->arriba->nombre, esc->arriba->id);
-  if (esc->abajo)     printf("  [Abajo]     -> %s (ID: %d)\n", esc->abajo->nombre, esc->abajo->id);
+  if (esc->arriba) printf("  [Arriba]    -> %s (ID: %d)\n", esc->arriba->nombre, esc->arriba->id);
+  if (esc->abajo) printf("  [Abajo]     -> %s (ID: %d)\n", esc->abajo->nombre, esc->abajo->id);
   if (esc->izquierda) printf("  [Izquierda] -> %s (ID: %d)\n", esc->izquierda->nombre, esc->izquierda->id);
-  if (esc->derecha)   printf("  [Derecha]   -> %s (ID: %d)\n", esc->derecha->nombre, esc->derecha->id);
+  if (esc->derecha) printf("  [Derecha]   -> %s (ID: %d)\n", esc->derecha->nombre, esc->derecha->id);
   printf("============================================================\n");
 }
 
 
+/**
+  * Permite al jugador recoger uno o más items del escenario actual.
+  * Consume 1 unidad de tiempo si se recoge al menos un ítem.
+  */
 void recoger_items(Jugador *jugador) {
   Escenario *esc = jugador->escenario_actual;
   if (list_first(esc->items_disponibles) == NULL) {
@@ -302,14 +379,17 @@ void recoger_items(Jugador *jugador) {
       printf("[!] Número de ítem fuera de rango.\n");
       continue;
     }
+    // Posicionar el puntero actual de la lista en el ítem elegido
     it = (Item *)list_first(esc->items_disponibles);
     for (int i = 1; i < opcion; i++) {
       it = (Item *)list_next(esc->items_disponibles);
     }
+    // Transferir ítem al inventario del jugador
     list_pushBack(jugador->inventario, it);
     jugador->peso_total += it->peso;
     jugador->puntaje_acumulado += it->valor;
     printf("\n[+] Has recogido: %s (+%d pts, +%d kg)\n", it->nombre, it->valor, it->peso);
+    // Eliminar del escenario actual sin hacer free (ya que ya pasó la inventario)
     list_popCurrent(esc->items_disponibles);
     recogio_alguno = true;
   }
@@ -319,9 +399,14 @@ void recoger_items(Jugador *jugador) {
   }
 }
 
+
+/**
+  * Permite al jugador descartar uno o más ítems de su inventario para reducir peso.
+  * Consume 1 unidad de tiempo si se descarta al menos un ítem.
+  */
 void descartar_items(Jugador *jugador) {
   if (list_first(jugador->inventario) == NULL) {
-    printf("\n[!] Tu inventario está vacío. No tienes ítems para descartar-\n");
+    printf("\n[!] Tu inventario está vacío. No tienes ítems para descartar.\n");
     return;
   }
   bool descarto_alguno = false;
@@ -352,6 +437,7 @@ void descartar_items(Jugador *jugador) {
       printf("[!] Número de ítem fuera de rango.\n");
       continue;
     }
+    // Buscar el ítem en el inventario
     it = (Item *)list_first(jugador->inventario);
     for (int i = 1; i < opcion; i++) {
       it = (Item *)list_next(jugador->inventario);
@@ -360,15 +446,20 @@ void descartar_items(Jugador *jugador) {
     jugador->puntaje_acumulado -= it->valor;
     printf("\n[-] Has descartado : %s (-%d pts, -%d kg)\n", it->nombre, it->valor, it->peso);
     list_popCurrent(jugador->inventario);
-    free(it);
+    free(it); // Liberar memoria del item descartado
     descarto_alguno = true;
   }
   if (descarto_alguno) {
     jugador->tiempo_restante -= 1;
-    printf("\n[Tiempo] Se ha descartado una unidad de tiempo por descartar ítem(s)-\n");
+    printf("\n[Tiempo] Se ha descartado una unidad de tiempo por descartar ítem(s).\n");
   }
 }
 
+
+/**
+  * Permite al jugador avanzar hacia un escenario adyacente en el grafo.
+  * Descuenta tiempo segun la fórmula tiempo_usado = (jugador->peso_total + 1 + 9) / 10.
+  */
 bool avanzar_direccion(Jugador *jugador) {
   Escenario *esc = jugador->escenario_actual;
 
@@ -396,9 +487,10 @@ bool avanzar_direccion(Jugador *jugador) {
   else if (opcion == 3 && esc->izquierda) destino = esc->izquierda;
   else if (opcion == 4 && esc->derecha) destino = esc->derecha;
   else {
-    printf("\n[!] Dirección no disponible o inválida-\n");
+    printf("\n[!] Dirección no disponible o inválida.\n");
     return false;
   } 
+  // Calculo del tiempo consumido segun fórmula T = (peso_total + 1 + 9) / 10
   int tiempo_usado = (jugador->peso_total + 1 + 9) / 10;
   jugador->tiempo_restante -= tiempo_usado;
   jugador->escenario_actual = destino;
@@ -408,6 +500,10 @@ bool avanzar_direccion(Jugador *jugador) {
   return true;
 }
 
+
+/**
+  * Muestra la pantalla de victoria al llegar al escenario de salida.
+  */
 void mostrar_victoria(Jugador *jugador) {
   printf("\n************************************************************\n");
   printf("          ¡FELICIDADES! HAS ALCANZADO LA SALIDA             \n");
@@ -434,6 +530,10 @@ void mostrar_victoria(Jugador *jugador) {
   presioneTeclaParaContinuar();
 }
 
+
+/**
+  * Ejecuta el ciclo principal de la partida-
+  */
 void iniciar_partida(Map *grafo) {
   int id_inicial = 1;
   MapPair *nodo_inicial = map_search(grafo, &id_inicial);
@@ -441,6 +541,8 @@ void iniciar_partida(Map *grafo) {
     printf("\n[Error] No se encontro el escenario inicial (ID 1) en el grafo.\n");
     return;
   }
+
+  // Asegurar que los escenarios tengan todos sus ítems originales al iniciar
   restaurar_escenarios(grafo);
 
   Jugador jugador;
@@ -453,6 +555,7 @@ void iniciar_partida(Map *grafo) {
   bool partida_activa = true;
 
   while (partida_activa) {
+    // Verificar si se agotó el tiempo
     if (jugador.escenario_actual->es_final) {
       mostrar_victoria(&jugador);
       break;
@@ -468,10 +571,10 @@ void iniciar_partida(Map *grafo) {
     mostrar_estado(&jugador);
     printf("\n--- Opciones del jugador ---\n");
     printf("1. Recoger Ítem(s)\n");
-    printf("2. Descartart Ítem(s)\n");
+    printf("2. Descartar Ítem(s)\n");
     printf("3. Avanzar en una Dirección\n");
     printf("4. Reiniciar Partida\n");
-    printf("5. Salir al Mení Principal\n");
+    printf("5. Salir al Menú Principal\n");
 
     int opcion;
     if (scanf("%d", &opcion) != 1) {
@@ -485,7 +588,7 @@ void iniciar_partida(Map *grafo) {
         recoger_items(&jugador);
         break;
       case 2:
-      descartar_items(&jugador);
+        descartar_items(&jugador);
         break; 
       case 3:
         avanzar_direccion(&jugador);
@@ -509,6 +612,11 @@ void iniciar_partida(Map *grafo) {
   limpiar_inventario(&jugador);
   free(jugador.inventario);
 }
+
+
+// ============================================================================
+// FUNCIÓN PRINCIPAL (MENÚ PRINCIPAL)
+// ============================================================================
 
 int main() {
   Map *grafo_laberinto = NULL;
@@ -543,7 +651,7 @@ int main() {
               strcpy(ruta_archivo, "graphquest.csv");
           }
 
-          
+          // Si ya había un laberinto cargado, liberar su memoria antes de recargar
           if (grafo_laberinto != NULL) {
               liberar_grafo(grafo_laberinto);
           }
