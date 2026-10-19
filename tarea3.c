@@ -284,7 +284,7 @@ void recoger_items(Jugador *jugador) {
     Item *it = (Item *)list_first(esc->items_disponibles);
     while (it != NULL) {
       total++;
-      printf("  %d. %s (Valor: &d pts, Peso: %d kg)\n", total, it->nombre, it->valor, it->peso);
+      printf("  %d. %s (Valor: %d pts, Peso: %d kg)\n", total, it->nombre, it->valor, it->peso);
       it = (Item *)list_next(esc->items_disponibles);
     }
     printf("  0. Terminar de recoger\n");
@@ -353,7 +353,7 @@ void descartar_items(Jugador *jugador) {
       continue;
     }
     it = (Item *)list_first(jugador->inventario);
-    for (int i = 1; 1 < opcion; i++) {
+    for (int i = 1; i < opcion; i++) {
       it = (Item *)list_next(jugador->inventario);
     }
     jugador->peso_total -= it->peso;
@@ -434,6 +434,81 @@ void mostrar_victoria(Jugador *jugador) {
   presioneTeclaParaContinuar();
 }
 
+void iniciar_partida(Map *grafo) {
+  int id_inicial = 1;
+  MapPair *nodo_inicial = map_search(grafo, &id_inicial);
+  if (nodo_inicial == NULL) {
+    printf("\n[Error] No se encontro el escenario inicial (ID 1) en el grafo.\n");
+    return;
+  }
+  restaurar_escenarios(grafo);
+
+  Jugador jugador;
+  jugador.escenario_actual = (Escenario *)nodo_inicial->value;
+  jugador.inventario = list_create();
+  jugador.peso_total = 0;
+  jugador.puntaje_acumulado = 0;
+  jugador.tiempo_restante = TIEMPO_INICIAL;
+
+  bool partida_activa = true;
+
+  while (partida_activa) {
+    if (jugador.escenario_actual->es_final) {
+      mostrar_victoria(&jugador);
+      break;
+    }
+    if (jugador.tiempo_restante <= 0) {
+        printf("\n============================================================\n");
+        printf("                 ¡SE HA AGOTADO EL TIEMPO!                  \n");
+        printf("  Has quedado atrapado en el laberinto. Fin de la partida.  \n");
+        printf("============================================================\n");
+        presioneTeclaParaContinuar();
+        break;
+    }
+    mostrar_estado(&jugador);
+    printf("\n--- Opciones del jugador ---\n");
+    printf("1. Recoger Ítem(s)\n");
+    printf("2. Descartart Ítem(s)\n");
+    printf("3. Avanzar en una Dirección\n");
+    printf("4. Reiniciar Partida\n");
+    printf("5. Salir al Mení Principal\n");
+
+    int opcion;
+    if (scanf("%d", &opcion) != 1) {
+      limpiar_buffer();
+      printf("\n[!] Entrada inválida. Por favor ingrese un número.\n");
+      continue;
+    }
+    limpiar_buffer();
+    switch (opcion) {
+      case 1:
+        recoger_items(&jugador);
+        break;
+      case 2:
+      descartar_items(&jugador);
+        break; 
+      case 3:
+        avanzar_direccion(&jugador);
+        break;
+      case 4:
+        printf("\n[Reiniciando] Restaurando laberinto, inventario y tiempo...\n");
+        limpiar_inventario(&jugador);
+        restaurar_escenarios(grafo);
+        jugador.escenario_actual = (Escenario *)nodo_inicial->value;
+        jugador.tiempo_restante = TIEMPO_INICIAL;
+        break;
+      case 5:
+        printf("\nSaliendo de la partida actual...\n");
+        partida_activa = false;
+        break;
+      default:
+        printf("\n[!]Opción no válida. Intente nuevamente.\n");
+        break;
+    }
+  }
+  limpiar_inventario(&jugador);
+  free(jugador.inventario);
+}
 
 int main() {
   Map *grafo_laberinto = NULL;
@@ -479,6 +554,16 @@ int main() {
           }
           break;
       }
+      case 2:
+        if (grafo_laberinto == NULL) {
+          printf("\n[!] Primero debe cargar el laberinto (Opción 1) antes de iniciar la partida.\n");
+        } else {
+          iniciar_partida(grafo_laberinto);
+        }
+        break;
+      case 3:
+        printf("\nGracias por jugar GraphQuest.\n");
+        break;
       default:
         printf("\n[!] Opción fuera de rango. Intente nuevamente.\n");
         break;
